@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   LayoutGrid, Rows3, RefreshCw, FileText, BarChart3, LogOut, ChevronDown, Settings, Plug,
 } from "lucide-react";
@@ -15,16 +15,20 @@ export function Layout() {
   const { user, logout } = useAuth();
   const { setCurrentProjectId } = useWorkspaceStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const currentProject = projects?.find((p) => p.id === projectId) ?? projects?.[0];
 
   useEffect(() => {
-    if (!projectId && projects && projects.length > 0) {
+    // Only auto-redirect to a project board from the bare index route ("/").
+    // Top-level routes like /settings and /integrations intentionally have no
+    // :projectId and must not be hijacked back to the board.
+    if (location.pathname === "/" && !projectId && projects && projects.length > 0) {
       setCurrentProjectId(projects[0].id);
       navigate(`/projects/${projects[0].id}/board`, { replace: true });
     }
-  }, [projectId, projects]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [projectId, projects, location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const nav = currentProject
     ? [
