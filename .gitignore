@@ -11,6 +11,10 @@ backend/db.sqlite3
 frontend/node_modules/
 frontend/dist/
 
+# Node / integrations
+integrations/sarah-mcp/node_modules/
+integrations/sarah-mcp/package-lock.json
+
 # Editors / OS
 .vscode/
 .idea/

@@ -25,4 +25,8 @@ if [ "${SEED_DEMO_DATA:-true}" = "true" ]; then
   python manage.py seed_demo || true
 fi
 
+if [ -n "${SARAH_OS_PASSWORD:-}" ]; then
+  python manage.py create_sarah_os --password "${SARAH_OS_PASSWORD}" || true
+fi
+
 exec "$@"

@@ -110,6 +110,15 @@ npm run dev
 The Vite dev server proxies `/api` and `/media` to `http://localhost:8000` by default (see
 `vite.config.ts`); override with `VITE_API_PROXY_TARGET` if your backend runs elsewhere.
 
+## Sarah-OS integration (MCP)
+
+This platform ships with a full-admin integration account (`sarah-os`) and a
+dedicated MCP server so an external AI agent (Sarah-OS) can read project
+status, post comments/suggestions on work items, and create/update work
+across current and future features. See
+[`integrations/sarah-mcp/README.md`](./integrations/sarah-mcp/README.md) for
+setup and connection details.
+
 ## Production notes
 
 - The frontend `Dockerfile` includes a `production` stage that builds static assets and serves

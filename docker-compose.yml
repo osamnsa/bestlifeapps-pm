@@ -50,6 +50,21 @@ services:
     ports:
       - "5173:5173"
 
+  sarah-mcp:
+    build:
+      context: ./integrations/sarah-mcp
+    restart: unless-stopped
+    environment:
+      PM_API_BASE_URL: http://backend:8000
+      SARAH_OS_USERNAME: sarah-os
+      SARAH_OS_PASSWORD: ${SARAH_OS_PASSWORD:?Set SARAH_OS_PASSWORD in backend/.env or your shell env}
+      SARAH_OS_MCP_SHARED_SECRET: ${SARAH_OS_MCP_SHARED_SECRET:-}
+      PORT: 4545
+    depends_on:
+      - backend
+    ports:
+      - "4545:4545"
+
 volumes:
   postgres_data:
   backend_static:
