@@ -5,6 +5,8 @@ import { BoardPage } from "./pages/BoardPage";
 import { CyclesPage } from "./pages/CyclesPage";
 import { PagesPage } from "./pages/PagesPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { IntegrationsPage } from "./pages/IntegrationsPage";
 import { useAuth } from "./store/auth";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -31,6 +33,8 @@ export default function App() {
         <Route path="projects/:projectId/cycles" element={<CyclesPage />} />
         <Route path="projects/:projectId/pages" element={<PagesPage />} />
         <Route path="projects/:projectId/analytics" element={<AnalyticsPage />} />
+        <Route path="settings" element={<SettingsPage />} />
+        <Route path="integrations" element={<IntegrationsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

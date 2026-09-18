@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useNavigate, useParams } from "react-router-dom";
 import {
-  LayoutGrid, Rows3, RefreshCw, FileText, BarChart3, LogOut, ChevronDown,
+  LayoutGrid, Rows3, RefreshCw, FileText, BarChart3, LogOut, ChevronDown, Settings, Plug,
 } from "lucide-react";
 import { useProjects } from "../api/resources";
 import { useAuth } from "../store/auth";
@@ -35,6 +35,11 @@ export function Layout() {
         { to: `/projects/${currentProject.id}/analytics`, label: "Analytics", icon: BarChart3 },
       ]
     : [];
+
+  const secondaryNav = [
+    { to: "/settings", label: "Settings", icon: Settings },
+    { to: "/integrations", label: "Integrations", icon: Plug },
+  ];
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950">
@@ -96,6 +101,24 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+
+        <div className="space-y-0.5 border-t border-slate-100 px-3 py-3 dark:border-slate-800">
+          {secondaryNav.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                clsx(
+                  "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+                  isActive && "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
+                )
+              }
+            >
+              <item.icon size={16} />
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
 
         <div className="border-t border-slate-100 px-3 py-3 dark:border-slate-800">
           <ThemeToggle />

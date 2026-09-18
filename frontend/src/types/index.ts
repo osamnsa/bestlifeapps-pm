@@ -4,6 +4,7 @@ export interface User {
   email: string;
   first_name?: string;
   last_name?: string;
+  admin_workspace_ids?: string[];
 }
 
 export interface Label {
@@ -31,6 +32,7 @@ export interface Workspace {
   name: string;
   slug: string;
   projects: Project[];
+  my_role?: "admin" | "member" | "viewer" | null;
 }
 
 export interface WorkflowState {
@@ -160,4 +162,29 @@ export interface Paginated<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+export interface Session {
+  id: number;
+  created_at: string;
+  expires_at: string;
+}
+
+export type IntegrationProvider = "imap" | "pop3";
+export type IntegrationStatus = "connected" | "error" | "untested";
+
+export interface Integration {
+  id: string;
+  workspace: string;
+  provider: IntegrationProvider;
+  label: string;
+  host: string;
+  port: number;
+  username: string;
+  use_ssl: boolean;
+  status: IntegrationStatus;
+  last_error: string;
+  last_tested_at: string | null;
+  created_at: string;
+  updated_at: string;
 }

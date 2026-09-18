@@ -3,6 +3,7 @@ import { api } from "./client";
 import type {
   Project, Workspace, WorkflowState, WorkItem, Cycle, Page,
   Paginated, ProjectAnalytics, BurndownData, SavedView, Comment, User, Label,
+  Session, Integration,
 } from "../types";
 
 // ---------- Workspaces / Projects ----------
@@ -28,10 +29,97 @@ export function useProject(projectId?: string) {
   });
 }
 
+export function useCreateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { workspace: string; name: string; identifier: string; description?: string; color?: string }) =>
+      (await api.post<Project>("/projects/", payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["projects"] }),
+  });
+}
+
 export function useUsers() {
   return useQuery({
     queryKey: ["users"],
     queryFn: async () => (await api.get<User[]>("/me/")).data,
+  });
+}
+
+// ---------- Account / Me ----------
+export function useMe() {
+  return useQuery({
+    queryKey: ["me"],
+    queryFn: async () => (await api.get<User & { admin_workspace_ids: string[] }>("/me/")).data,
+  });
+}
+
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<Pick<User, "first_name" | "last_name" | "email">>) =>
+      (await api.patch("/me/", payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["me"] }),
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: async (payload: { current_password: string; new_password: string }) =>
+      (await api.post("/auth/change-password/", payload)).data,
+  });
+}
+
+// ---------- Security / Sessions ----------
+export function useSessions() {
+  return useQuery({
+    queryKey: ["sessions"],
+    queryFn: async () => (await api.get<Session[]>("/sessions/")).data,
+  });
+}
+
+export function useRevokeSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => api.delete(`/sessions/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sessions"] }),
+  });
+}
+
+// ---------- Integrations ----------
+export function useIntegrations(workspaceId?: string) {
+  return useQuery({
+    enabled: !!workspaceId,
+    queryKey: ["integrations", workspaceId],
+    queryFn: async () =>
+      (await api.get<any>("/integrations/", { params: { workspace: workspaceId } })).data,
+    select: (data: any) => (Array.isArray(data) ? data : data.results) as Integration[],
+  });
+}
+
+export function useCreateIntegration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      workspace: string; provider: "imap" | "pop3"; label: string; host: string;
+      port: number; username: string; password: string; use_ssl: boolean;
+    }) => (await api.post<Integration>("/integrations/", payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations"] }),
+  });
+}
+
+export function useTestIntegration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await api.post<Integration>(`/integrations/${id}/test/`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations"] }),
+  });
+}
+
+export function useDeleteIntegration() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => api.delete(`/integrations/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations"] }),
   });
 }
 

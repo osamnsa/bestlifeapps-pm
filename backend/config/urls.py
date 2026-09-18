@@ -5,7 +5,10 @@ from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from core.views import WorkspaceViewSet, ProjectViewSet, LabelViewSet, MeView
+from core.views import (
+    WorkspaceViewSet, ProjectViewSet, LabelViewSet, MeView,
+    ChangePasswordView, SessionViewSet,
+)
 from workitems.views import (
     WorkflowStateViewSet, WorkItemViewSet, AttachmentViewSet,
     CommentViewSet, ActivityLogViewSet, SavedViewViewSet,
@@ -13,6 +16,7 @@ from workitems.views import (
 from cycles.views import CycleViewSet
 from pages.views import PageViewSet
 from analytics.views import ProjectAnalyticsView
+from integrations.views import IntegrationViewSet
 
 admin.site.site_header = "Best Life Apps — Project Management Admin"
 admin.site.site_title = "Best Life Apps Admin"
@@ -30,12 +34,15 @@ router.register(r"activity", ActivityLogViewSet, basename="activity")
 router.register(r"views", SavedViewViewSet, basename="savedview")
 router.register(r"cycles", CycleViewSet, basename="cycle")
 router.register(r"pages", PageViewSet, basename="page")
+router.register(r"sessions", SessionViewSet, basename="session")
+router.register(r"integrations", IntegrationViewSet, basename="integration")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("api/me/", MeView.as_view({"get": "list"}), name="me"),
+    path("api/auth/change-password/", ChangePasswordView.as_view(), name="change_password"),
+    path("api/me/", MeView.as_view({"get": "list", "patch": "partial_update"}), name="me"),
     path("api/analytics/projects/<uuid:project_id>/", ProjectAnalyticsView.as_view(), name="project-analytics"),
     path("api/", include(router.urls)),
 ]

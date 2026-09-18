@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     # third party
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "django_filters",
     # local apps
@@ -31,6 +32,7 @@ INSTALLED_APPS = [
     "cycles",
     "pages",
     "analytics",
+    "integrations",
 ]
 
 MIDDLEWARE = [
@@ -123,6 +125,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=12),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 CORS_ALLOWED_ORIGINS = os.getenv(
@@ -133,3 +136,10 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = os.getenv(
     "CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
 ).split(",")
+
+# Symmetric key used to encrypt integration credentials (e.g. IMAP/POP3 passwords)
+# at rest. MUST be overridden in production via the FIELD_ENCRYPTION_KEY env var —
+# generate one with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+FIELD_ENCRYPTION_KEY = os.getenv(
+    "FIELD_ENCRYPTION_KEY", "zjSnk9oEqcE9iKjwEKFMr3_fIL91jvNamrYczcHGyws="
+)
