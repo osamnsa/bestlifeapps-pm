@@ -7,7 +7,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from core.views import (
     WorkspaceViewSet, ProjectViewSet, LabelViewSet, MeView,
-    ChangePasswordView, SessionViewSet,
+    ChangePasswordView, SessionViewSet, InviteViewSet, AcceptInviteView,
 )
 from workitems.views import (
     WorkflowStateViewSet, WorkItemViewSet, AttachmentViewSet,
@@ -36,6 +36,7 @@ router.register(r"cycles", CycleViewSet, basename="cycle")
 router.register(r"pages", PageViewSet, basename="page")
 router.register(r"sessions", SessionViewSet, basename="session")
 router.register(r"integrations", IntegrationViewSet, basename="integration")
+router.register(r"invites", InviteViewSet, basename="invite")
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -44,6 +45,7 @@ urlpatterns = [
     path("api/auth/change-password/", ChangePasswordView.as_view(), name="change_password"),
     path("api/me/", MeView.as_view({"get": "list", "patch": "partial_update"}), name="me"),
     path("api/analytics/projects/<uuid:project_id>/", ProjectAnalyticsView.as_view(), name="project-analytics"),
+    path("api/invites/accept/<str:token>/", AcceptInviteView.as_view(), name="accept-invite"),
     path("api/", include(router.urls)),
 ]
 

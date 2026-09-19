@@ -3,7 +3,7 @@ import { api } from "./client";
 import type {
   Project, Workspace, WorkflowState, WorkItem, Cycle, Page,
   Paginated, ProjectAnalytics, BurndownData, SavedView, Comment, User, Label,
-  Session, Integration,
+  Session, Integration, Invite, InvitePreview, WorkspaceMember, MemberRole,
 } from "../types";
 
 // ---------- Workspaces / Projects ----------
@@ -121,6 +121,72 @@ export function useDeleteIntegration() {
   return useMutation({
     mutationFn: async (id: string) => api.delete(`/integrations/${id}/`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations"] }),
+  });
+}
+
+// ---------- Team / Members ----------
+export function useWorkspaceMembers(workspaceId?: string) {
+  return useQuery({
+    enabled: !!workspaceId,
+    queryKey: ["workspace-members", workspaceId],
+    queryFn: async () => (await api.get<WorkspaceMember[]>(`/workspaces/${workspaceId}/members/`)).data,
+  });
+}
+
+// ---------- Invites ----------
+export function useInvites(workspaceId?: string) {
+  return useQuery({
+    enabled: !!workspaceId,
+    queryKey: ["invites", workspaceId],
+    queryFn: async () =>
+      (await api.get<any>("/invites/", { params: { workspace: workspaceId } })).data,
+    select: (data: any) => (Array.isArray(data) ? data : data.results) as Invite[],
+  });
+}
+
+export function useCreateInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { workspace: string; role: MemberRole; email?: string }) =>
+      (await api.post<Invite>("/invites/", payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invites"] }),
+  });
+}
+
+export function useRevokeInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => api.delete(`/invites/${id}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invites"] }),
+  });
+}
+
+export function useResendInvite() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => (await api.post<Invite>(`/invites/${id}/resend/`)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["invites"] }),
+  });
+}
+
+export function useInvitePreview(token?: string) {
+  return useQuery({
+    enabled: !!token,
+    queryKey: ["invite-preview", token],
+    queryFn: async () => (await api.get<InvitePreview>(`/invites/accept/${token}/`)).data,
+    retry: false,
+  });
+}
+
+export function useAcceptInvite() {
+  return useMutation({
+    mutationFn: async ({
+      token, mode, username, password, email, first_name, last_name,
+    }: {
+      token: string; mode: "register" | "login"; username: string; password: string;
+      email?: string; first_name?: string; last_name?: string;
+    }) =>
+      (await api.post(`/invites/accept/${token}/`, { mode, username, password, email, first_name, last_name })).data,
   });
 }
 

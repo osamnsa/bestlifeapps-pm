@@ -9,6 +9,7 @@ interface AuthState {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   fetchMe: () => Promise<void>;
+  setSession: (access: string, refresh: string, user: User) => void;
 }
 
 export const useAuth = create<AuthState>((set) => ({
@@ -40,5 +41,10 @@ export const useAuth = create<AuthState>((set) => ({
     } catch {
       set({ user: null, isAuthenticated: false });
     }
+  },
+  setSession: (access, refresh, user) => {
+    localStorage.setItem("access_token", access);
+    localStorage.setItem("refresh_token", refresh);
+    set({ user, isAuthenticated: true });
   },
 }));

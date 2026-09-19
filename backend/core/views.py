@@ -1,14 +1,17 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Count
 from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Workspace, WorkspaceMembership, Project, Label
+from .models import Workspace, WorkspaceMembership, Project, Label, Invite
 from .serializers import (
     WorkspaceSerializer, ProjectSerializer, LabelSerializer, UserSerializer,
     ProfileUpdateSerializer, ChangePasswordSerializer,
+    InviteSerializer, InvitePreviewSerializer, AcceptInviteSerializer,
 )
 
 User = get_user_model()
@@ -82,6 +85,16 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Workspace.objects.filter(members=self.request.user).prefetch_related("projects")
 
+    @action(detail=True, methods=["get"])
+    def members(self, request, pk=None):
+        workspace = self.get_object()
+        memberships = WorkspaceMembership.objects.filter(workspace=workspace).select_related("user")
+        data = [
+            {"id": m.id, "user": UserSerializer(m.user).data, "role": m.role}
+            for m in memberships
+        ]
+        return Response(data)
+
 
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
@@ -116,3 +129,89 @@ class LabelViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Label.objects.filter(project__workspace__members=self.request.user)
+
+
+def _require_admin(user, workspace):
+    is_admin = WorkspaceMembership.objects.filter(workspace=workspace, user=user, role="admin").exists()
+    if not is_admin:
+        from rest_framework.exceptions import PermissionDenied
+        raise PermissionDenied("Only workspace admins can manage invites.")
+
+
+class InviteViewSet(viewsets.ModelViewSet):
+    """Admin-only management of shareable invite links. Accepting an invite
+    happens through the separate public AcceptInviteView below."""
+
+    serializer_class = InviteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    filterset_fields = ["workspace", "status"]
+    http_method_names = ["get", "post", "delete", "head", "options"]
+
+    def get_queryset(self):
+        admin_workspace_ids = WorkspaceMembership.objects.filter(
+            user=self.request.user, role="admin"
+        ).values_list("workspace_id", flat=True)
+        return Invite.objects.filter(workspace_id__in=admin_workspace_ids)
+
+    def perform_create(self, serializer):
+        workspace = serializer.validated_data.get("workspace")
+        _require_admin(self.request.user, workspace)
+        serializer.save(invited_by=self.request.user)
+
+    def perform_destroy(self, instance):
+        _require_admin(self.request.user, instance.workspace)
+        instance.status = "revoked"
+        instance.save(update_fields=["status"])
+
+    @action(detail=True, methods=["post"])
+    def resend(self, request, pk=None):
+        invite = self.get_object()
+        _require_admin(request.user, invite.workspace)
+        invite.regenerate()
+        return Response(InviteSerializer(invite).data)
+
+
+class AcceptInviteView(APIView):
+    """Public endpoint (no auth) a new teammate lands on via their invite link."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, token):
+        invite = Invite.objects.filter(token=token).select_related("workspace").first()
+        if not invite:
+            return Response({"detail": "Invite not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(InvitePreviewSerializer(invite).data)
+
+    def post(self, request, token):
+        invite = Invite.objects.filter(token=token).select_related("workspace").first()
+        if not invite:
+            return Response({"detail": "Invite not found."}, status=status.HTTP_404_NOT_FOUND)
+        if not invite.is_valid:
+            return Response(
+                {"detail": "This invite has expired or is no longer valid."},
+                status=status.HTTP_410_GONE,
+            )
+
+        serializer = AcceptInviteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        WorkspaceMembership.objects.update_or_create(
+            workspace=invite.workspace, user=user, defaults={"role": invite.role}
+        )
+        invite.status = "accepted"
+        invite.accepted_by = user
+        from django.utils import timezone
+        invite.accepted_at = timezone.now()
+        invite.save(update_fields=["status", "accepted_by", "accepted_at"])
+
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserSerializer(user).data,
+                "workspace": {"id": str(invite.workspace.id), "name": invite.workspace.name},
+            },
+            status=status.HTTP_200_OK,
+        )

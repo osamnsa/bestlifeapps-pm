@@ -164,6 +164,39 @@ export interface Paginated<T> {
   results: T[];
 }
 
+export type MemberRole = "admin" | "member" | "viewer";
+
+export interface WorkspaceMember {
+  id: string;
+  user: User;
+  role: MemberRole;
+}
+
+export type InviteStatus = "pending" | "accepted" | "revoked";
+
+export interface Invite {
+  id: string;
+  workspace: string;
+  workspace_name: string;
+  email: string;
+  role: MemberRole;
+  token: string;
+  status: InviteStatus;
+  invited_by: User | null;
+  accepted_at: string | null;
+  expires_at: string;
+  is_expired: boolean;
+  created_at: string;
+}
+
+export interface InvitePreview {
+  workspace_name: string;
+  role: MemberRole;
+  status: InviteStatus;
+  is_valid: boolean;
+  expires_at: string;
+}
+
 export interface Session {
   id: number;
   created_at: string;
