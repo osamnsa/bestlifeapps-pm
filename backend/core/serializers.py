@@ -59,8 +59,10 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = [
             "id", "workspace", "name", "identifier", "description", "icon", "color",
-            "members", "member_ids", "labels", "work_item_count", "created_at", "updated_at",
+            "members", "member_ids", "labels", "work_item_count", "status", "completed_at",
+            "created_at", "updated_at",
         ]
+        read_only_fields = ["status", "completed_at"]
 
 
 class WorkspaceSerializer(serializers.ModelSerializer):

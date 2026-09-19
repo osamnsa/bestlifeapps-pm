@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Count
+from django.utils import timezone
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -15,6 +16,13 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+
+def _require_admin(user, workspace):
+    is_admin = WorkspaceMembership.objects.filter(workspace=workspace, user=user, role="admin").exists()
+    if not is_admin:
+        from rest_framework.exceptions import PermissionDenied
+        raise PermissionDenied("Only workspace admins can do that.")
 
 
 class MeView(viewsets.ViewSet):
@@ -99,7 +107,7 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
     permission_classes = [permissions.IsAuthenticated]
-    filterset_fields = ["workspace"]
+    filterset_fields = ["workspace", "status"]
     search_fields = ["name", "identifier"]
 
     def get_queryset(self):
@@ -112,14 +120,27 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         workspace = serializer.validated_data.get("workspace")
-        is_admin = WorkspaceMembership.objects.filter(
-            workspace=workspace, user=self.request.user, role="admin"
-        ).exists()
-        if not is_admin:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Only workspace admins can create projects.")
+        _require_admin(self.request.user, workspace)
         project = serializer.save()
         project.members.add(self.request.user)
+
+    def perform_destroy(self, instance):
+        _require_admin(self.request.user, instance.workspace)
+        instance.delete()
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        project = self.get_object()
+        _require_admin(request.user, project.workspace)
+        project.mark_completed()
+        return Response(ProjectSerializer(project, context={"request": request}).data)
+
+    @action(detail=True, methods=["post"])
+    def reopen(self, request, pk=None):
+        project = self.get_object()
+        _require_admin(request.user, project.workspace)
+        project.reopen()
+        return Response(ProjectSerializer(project, context={"request": request}).data)
 
 
 class LabelViewSet(viewsets.ModelViewSet):
@@ -129,13 +150,6 @@ class LabelViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Label.objects.filter(project__workspace__members=self.request.user)
-
-
-def _require_admin(user, workspace):
-    is_admin = WorkspaceMembership.objects.filter(workspace=workspace, user=user, role="admin").exists()
-    if not is_admin:
-        from rest_framework.exceptions import PermissionDenied
-        raise PermissionDenied("Only workspace admins can manage invites.")
 
 
 class InviteViewSet(viewsets.ModelViewSet):
@@ -201,7 +215,6 @@ class AcceptInviteView(APIView):
         )
         invite.status = "accepted"
         invite.accepted_by = user
-        from django.utils import timezone
         invite.accepted_at = timezone.now()
         invite.save(update_fields=["status", "accepted_by", "accepted_at"])
 

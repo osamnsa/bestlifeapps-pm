@@ -18,15 +18,20 @@ export function Layout() {
   const location = useLocation();
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
-  const currentProject = projects?.find((p) => p.id === projectId) ?? projects?.[0];
+  const activeProjects = projects?.filter((p) => p.status === "active") ?? [];
+  const completedProjects = projects?.filter((p) => p.status === "completed") ?? [];
+  const [showCompleted, setShowCompleted] = useState(false);
+
+  const currentProject = projects?.find((p) => p.id === projectId) ?? activeProjects[0] ?? projects?.[0];
 
   useEffect(() => {
     // Only auto-redirect to a project board from the bare index route ("/").
     // Top-level routes like /settings and /integrations intentionally have no
     // :projectId and must not be hijacked back to the board.
-    if (location.pathname === "/" && !projectId && projects && projects.length > 0) {
-      setCurrentProjectId(projects[0].id);
-      navigate(`/projects/${projects[0].id}/board`, { replace: true });
+    const fallback = activeProjects[0] ?? projects?.[0];
+    if (location.pathname === "/" && !projectId && fallback) {
+      setCurrentProjectId(fallback.id);
+      navigate(`/projects/${fallback.id}/board`, { replace: true });
     }
   }, [projectId, projects, location.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -68,8 +73,8 @@ export function Layout() {
             <ChevronDown size={14} className="text-slate-400" />
           </button>
           {switcherOpen && projects && (
-            <div className="absolute left-3 right-3 z-10 mt-1 max-h-64 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
-              {projects.map((p) => (
+            <div className="absolute left-3 right-3 z-10 mt-1 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+              {activeProjects.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => {
@@ -84,6 +89,32 @@ export function Layout() {
                   <span className="ml-auto text-xs text-slate-400">{p.identifier}</span>
                 </button>
               ))}
+              {completedProjects.length > 0 && (
+                <>
+                  <button
+                    onClick={() => setShowCompleted((s) => !s)}
+                    className="flex w-full items-center gap-1.5 border-t border-slate-100 px-3 py-1.5 text-left text-xs font-medium text-slate-400 hover:text-slate-600 dark:border-slate-700 dark:hover:text-slate-300"
+                  >
+                    <ChevronDown size={12} className={showCompleted ? "rotate-180 transition" : "transition"} />
+                    Completed ({completedProjects.length})
+                  </button>
+                  {showCompleted && completedProjects.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setCurrentProjectId(p.id);
+                        setSwitcherOpen(false);
+                        navigate(`/projects/${p.id}/board`);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-400 hover:bg-slate-50 dark:text-slate-500 dark:hover:bg-slate-700"
+                    >
+                      <span>{p.icon}</span>
+                      <span className="truncate">{p.name}</span>
+                      <span className="ml-auto text-xs text-slate-400">{p.identifier}</span>
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>

@@ -14,6 +14,8 @@ export interface Label {
   color: string;
 }
 
+export type ProjectStatus = "active" | "completed";
+
 export interface Project {
   id: string;
   workspace: string;
@@ -25,6 +27,8 @@ export interface Project {
   members: User[];
   labels: Label[];
   work_item_count?: number;
+  status: ProjectStatus;
+  completed_at: string | null;
 }
 
 export interface Workspace {

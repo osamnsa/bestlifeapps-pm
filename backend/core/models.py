@@ -92,6 +92,8 @@ class Invite(TimeStampedModel):
 
 
 class Project(TimeStampedModel):
+    STATUS_CHOICES = [("active", "Active"), ("completed", "Completed")]
+
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name="projects")
     name = models.CharField(max_length=255)
     identifier = models.CharField(max_length=10, help_text="Short prefix e.g. ENG, OPS")
@@ -100,6 +102,8 @@ class Project(TimeStampedModel):
     color = models.CharField(max_length=7, blank=True, default="#6366F1")
     members = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="projects", blank=True)
     next_item_number = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="active")
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ("workspace", "identifier")
@@ -113,6 +117,16 @@ class Project(TimeStampedModel):
         self.next_item_number += 1
         self.save(update_fields=["next_item_number"])
         return num
+
+    def mark_completed(self):
+        self.status = "completed"
+        self.completed_at = timezone.now()
+        self.save(update_fields=["status", "completed_at"])
+
+    def reopen(self):
+        self.status = "active"
+        self.completed_at = None
+        self.save(update_fields=["status", "completed_at"])
 
 
 class Label(TimeStampedModel):
