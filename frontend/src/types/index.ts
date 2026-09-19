@@ -170,7 +170,7 @@ export interface Session {
   expires_at: string;
 }
 
-export type IntegrationProvider = "imap" | "pop3";
+export type IntegrationProvider = "imap" | "pop3" | "discord";
 export type IntegrationStatus = "connected" | "error" | "untested";
 
 export interface Integration {
@@ -179,9 +179,11 @@ export interface Integration {
   provider: IntegrationProvider;
   label: string;
   host: string;
-  port: number;
+  port: number | null;
   username: string;
   use_ssl: boolean;
+  guild_id: string;
+  channel_id: string;
   status: IntegrationStatus;
   last_error: string;
   last_tested_at: string | null;

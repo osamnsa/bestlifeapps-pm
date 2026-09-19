@@ -10,18 +10,19 @@ from rest_framework.response import Response
 from core.models import WorkspaceMembership
 from .models import Integration
 from .serializers import IntegrationSerializer
+from . import discord_client
 
 
-def _test_login(integration: Integration) -> tuple[bool, str]:
-    """Attempts a real login against the configured mail server.
+def _test_connection(integration: Integration) -> tuple[bool, str]:
+    """Attempts a real connection check against the configured provider.
     Returns (success, error_message)."""
-    password = integration.get_password()
+    secret = integration.get_password()
     try:
         if integration.provider == "imap":
             cls = imaplib.IMAP4_SSL if integration.use_ssl else imaplib.IMAP4
             conn = cls(integration.host, integration.port, timeout=10)
             try:
-                conn.login(integration.username, password)
+                conn.login(integration.username, secret)
             finally:
                 try:
                     conn.logout()
@@ -32,12 +33,14 @@ def _test_login(integration: Integration) -> tuple[bool, str]:
             conn = cls(integration.host, integration.port, timeout=10)
             try:
                 conn.user(integration.username)
-                conn.pass_(password)
+                conn.pass_(secret)
             finally:
                 try:
                     conn.quit()
                 except Exception:
                     pass
+        elif integration.provider == "discord":
+            return discord_client.verify_guild_access(secret, integration.guild_id)
         else:
             return False, f"Unsupported provider: {integration.provider}"
         return True, ""
@@ -70,7 +73,7 @@ class IntegrationViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def test(self, request, pk=None):
         integration = self.get_object()
-        success, error = _test_login(integration)
+        success, error = _test_connection(integration)
         integration.status = "connected" if success else "error"
         integration.last_error = error
         integration.last_tested_at = timezone.now()

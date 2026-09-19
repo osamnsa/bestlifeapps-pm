@@ -100,8 +100,9 @@ export function useCreateIntegration() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: {
-      workspace: string; provider: "imap" | "pop3"; label: string; host: string;
-      port: number; username: string; password: string; use_ssl: boolean;
+      workspace: string; provider: "imap" | "pop3" | "discord"; label: string;
+      host?: string; port?: number; username?: string; use_ssl?: boolean;
+      guild_id?: string; channel_id?: string; password: string;
     }) => (await api.post<Integration>("/integrations/", payload)).data,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations"] }),
   });
