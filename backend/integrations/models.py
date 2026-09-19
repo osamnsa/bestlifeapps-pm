@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from django.conf import settings
 from django.db import models
@@ -62,3 +63,39 @@ class Integration(TimeStampedModel):
 
     def get_password(self) -> str:
         return decrypt(self.encrypted_password)
+
+
+class McpSettings(TimeStampedModel):
+    """Connection settings for the Sarah-OS MCP server, configured entirely
+    from the app instead of docker/env files.
+
+    The sarah-mcp Node service fetches the current secret from the app
+    (authenticated as the sarah-os account) instead of reading a static
+    environment variable, so rotating it here takes effect immediately.
+    """
+
+    workspace = models.OneToOneField(Workspace, on_delete=models.CASCADE, related_name="mcp_settings")
+    encrypted_secret = models.TextField(blank=True, default="")
+    is_enabled = models.BooleanField(default=True)
+    rotated_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"MCP settings for {self.workspace.name}"
+
+    @property
+    def is_configured(self) -> bool:
+        return bool(self.encrypted_secret)
+
+    def get_secret(self) -> str:
+        return decrypt(self.encrypted_secret) if self.encrypted_secret else ""
+
+    def rotate(self) -> str:
+        """Generates a brand new secret, stores it encrypted, and returns the
+        plaintext once — the caller is responsible for showing it to the user
+        exactly one time."""
+        from django.utils import timezone
+        new_secret = secrets.token_urlsafe(32)
+        self.encrypted_secret = encrypt(new_secret)
+        self.rotated_at = timezone.now()
+        self.save(update_fields=["encrypted_secret", "rotated_at", "updated_at"])
+        return new_secret

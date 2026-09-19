@@ -4,9 +4,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { pmApi } from "./api.js";
+import { startMcpAuthSync, isAuthorized } from "./mcpAuth.js";
 
 const PORT = process.env.PORT || 4545;
-const SHARED_SECRET = process.env.SARAH_OS_MCP_SHARED_SECRET;
 
 function textResult(value) {
   return {
@@ -214,12 +214,13 @@ function buildServer() {
 const app = express();
 app.use(express.json());
 
-// Simple shared-secret auth for the MCP endpoint itself (separate from the
-// sarah-os PM account credentials, which are used server-side to call the API).
+// Shared-secret auth for the MCP endpoint itself (separate from the sarah-os
+// PM account credentials, which are used server-side to call the API). The
+// secret is fetched live from the app and refreshed periodically — see
+// mcpAuth.js — instead of being a fixed value baked into the environment.
 app.use((req, res, next) => {
-  if (!SHARED_SECRET) return next(); // no extra gate configured; rely on network isolation
   const provided = req.header("x-mcp-shared-secret");
-  if (provided !== SHARED_SECRET) {
+  if (!isAuthorized(provided)) {
     return res.status(401).json({ error: "unauthorized" });
   }
   next();
@@ -256,6 +257,8 @@ app.get("/mcp", async (req, res) => {
 });
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
+
+startMcpAuthSync();
 
 app.listen(PORT, () => {
   console.log(`[sarah-mcp] Best Life Apps PM MCP server listening on port ${PORT}`);

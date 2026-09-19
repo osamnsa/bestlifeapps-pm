@@ -106,4 +106,9 @@ export const pmApi = {
     request("get", "/api/labels/", { params: { project: projectId } }),
   listStates: (projectId) =>
     request("get", "/api/states/", { params: { project: projectId } }),
+
+  // Sarah-OS MCP connection settings, configured from the app itself (Integrations
+  // page) rather than a static env var. Returns the list of currently enabled
+  // secrets across every workspace sarah-os administers.
+  getLiveMcpSecrets: () => request("get", "/api/mcp-settings/live/"),
 };

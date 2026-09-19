@@ -16,7 +16,7 @@ from workitems.views import (
 from cycles.views import CycleViewSet
 from pages.views import PageViewSet
 from analytics.views import ProjectAnalyticsView
-from integrations.views import IntegrationViewSet
+from integrations.views import IntegrationViewSet, McpSettingsViewSet
 
 admin.site.site_header = "Best Life Apps — Project Management Admin"
 admin.site.site_title = "Best Life Apps Admin"
@@ -36,6 +36,7 @@ router.register(r"cycles", CycleViewSet, basename="cycle")
 router.register(r"pages", PageViewSet, basename="page")
 router.register(r"sessions", SessionViewSet, basename="session")
 router.register(r"integrations", IntegrationViewSet, basename="integration")
+router.register(r"mcp-settings", McpSettingsViewSet, basename="mcp-settings")
 router.register(r"invites", InviteViewSet, basename="invite")
 
 urlpatterns = [

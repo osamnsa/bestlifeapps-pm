@@ -4,6 +4,7 @@ import type {
   Project, Workspace, WorkflowState, WorkItem, Cycle, Page,
   Paginated, ProjectAnalytics, BurndownData, SavedView, Comment, User, Label,
   Session, Integration, Invite, InvitePreview, WorkspaceMember, MemberRole,
+  McpSettings, McpRotateResponse,
 } from "../types";
 
 // ---------- Workspaces / Projects ----------
@@ -145,6 +146,33 @@ export function useDeleteIntegration() {
   return useMutation({
     mutationFn: async (id: string) => api.delete(`/integrations/${id}/`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["integrations"] }),
+  });
+}
+
+// ---------- Sarah-OS / MCP Connection ----------
+export function useMcpSettings(workspaceId?: string) {
+  return useQuery({
+    enabled: !!workspaceId,
+    queryKey: ["mcp-settings", workspaceId],
+    queryFn: async () => (await api.get<McpSettings>("/mcp-settings/", { params: { workspace: workspaceId } })).data,
+  });
+}
+
+export function useRotateMcpSecret() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (workspaceId: string) =>
+      (await api.post<McpRotateResponse>("/mcp-settings/rotate/", { workspace: workspaceId })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["mcp-settings"] }),
+  });
+}
+
+export function useToggleMcpSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (workspaceId: string) =>
+      (await api.post<McpSettings>("/mcp-settings/toggle/", { workspace: workspaceId })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["mcp-settings"] }),
   });
 }
 

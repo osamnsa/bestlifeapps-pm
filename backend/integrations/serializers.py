@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Integration
+from .models import Integration, McpSettings
 
 
 class IntegrationSerializer(serializers.ModelSerializer):
@@ -47,3 +47,14 @@ class IntegrationSerializer(serializers.ModelSerializer):
             instance.set_password(password)
         instance.save()
         return instance
+
+
+class McpSettingsSerializer(serializers.ModelSerializer):
+    """Admin-facing view — the secret itself is never returned here, only
+    whether one is configured. Use the /rotate/ action to see it once."""
+    is_configured = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = McpSettings
+        fields = ["id", "workspace", "is_enabled", "is_configured", "rotated_at", "updated_at"]
+        read_only_fields = ["is_configured", "rotated_at", "updated_at"]

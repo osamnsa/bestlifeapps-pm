@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   Mail, MessageSquare, Plus, X, RefreshCw, Trash2, CheckCircle2, XCircle, HelpCircle,
+  Bot, Copy, Power,
 } from "lucide-react";
 import {
   useWorkspaces, useIntegrations, useCreateIntegration, useTestIntegration, useDeleteIntegration,
+  useMcpSettings, useRotateMcpSecret, useToggleMcpSettings,
 } from "../api/resources";
 import type { Integration, IntegrationProvider } from "../types";
 
@@ -165,6 +167,8 @@ export function IntegrationsPage() {
             )}
           </div>
         </div>
+
+        {workspaceId && <McpConnectionPanel workspaceId={workspaceId} isAdmin={!!isAdmin} />}
       </div>
 
       {showConnectEmail && workspaceId && (
@@ -172,6 +176,135 @@ export function IntegrationsPage() {
       )}
       {showConnectDiscord && workspaceId && (
         <ConnectDiscordModal workspaceId={workspaceId} onClose={() => setShowConnectDiscord(false)} />
+      )}
+    </div>
+  );
+}
+
+function McpConnectionPanel({ workspaceId, isAdmin }: { workspaceId: string; isAdmin: boolean }) {
+  const { data: settings } = useMcpSettings(workspaceId);
+  const rotateSecret = useRotateMcpSecret();
+  const toggleSettings = useToggleMcpSettings();
+  const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
+  const [copied, setCopied] = useState<"secret" | "config" | null>(null);
+
+  function copy(text: string, which: "secret" | "config") {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(which);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  }
+
+  function handleRotate() {
+    rotateSecret.mutate(workspaceId, {
+      onSuccess: (data) => setRevealedSecret(data.secret),
+    });
+  }
+
+  const configBlock = JSON.stringify(
+    {
+      mcpServers: {
+        "bestlifeapps-pm": {
+          url: "http://<your-host>:4545/mcp",
+          headers: { "x-mcp-shared-secret": revealedSecret ?? "<rotate to get a secret>" },
+        },
+      },
+    },
+    null,
+    2
+  );
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300">
+            <Bot size={18} />
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Sarah-OS / MCP Connection</h2>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              Lets Sarah-OS read project status and post suggestions directly into your workflow.
+            </p>
+          </div>
+        </div>
+        {settings && (
+          <span
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
+              settings.is_enabled
+                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+                : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+            }`}
+          >
+            {settings.is_enabled ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+            {settings.is_enabled ? "Enabled" : "Disabled"}
+          </span>
+        )}
+      </div>
+
+      <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+        {settings?.is_configured
+          ? "A connection secret is configured. Rotate it any time — the running Sarah-OS connector picks up the change automatically within about a minute."
+          : "No connection secret is configured yet. Generate one below, then paste the config into Sarah-OS."}
+      </p>
+
+      {isAdmin ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={handleRotate}
+            disabled={rotateSecret.isPending}
+            className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+          >
+            <RefreshCw size={14} className={rotateSecret.isPending ? "animate-spin" : ""} />
+            {settings?.is_configured ? "Rotate secret" : "Generate secret"}
+          </button>
+          {settings?.is_configured && (
+            <button
+              onClick={() => toggleSettings.mutate(workspaceId)}
+              disabled={toggleSettings.isPending}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <Power size={14} />
+              {settings.is_enabled ? "Disable" : "Enable"}
+            </button>
+          )}
+        </div>
+      ) : (
+        <p className="text-sm text-slate-400 dark:text-slate-500">Only workspace admins can manage this connection.</p>
+      )}
+
+      {revealedSecret && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950">
+          <p className="mb-2 text-xs font-medium text-amber-800 dark:text-amber-300">
+            Copy this now — it won't be shown again.
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 truncate rounded bg-white px-2 py-1.5 text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+              {revealedSecret}
+            </code>
+            <button
+              onClick={() => copy(revealedSecret, "secret")}
+              className="flex items-center gap-1 rounded-lg border border-amber-300 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900"
+            >
+              <Copy size={12} /> {copied === "secret" ? "Copied!" : "Copy"}
+            </button>
+          </div>
+
+          <p className="mb-1 mt-3 text-xs font-medium text-amber-800 dark:text-amber-300">
+            Paste this into Sarah-OS's MCP config (swap in your actual host):
+          </p>
+          <div className="flex items-start gap-2">
+            <pre className="flex-1 overflow-x-auto rounded bg-white p-2 text-[11px] text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+              {configBlock}
+            </pre>
+            <button
+              onClick={() => copy(configBlock, "config")}
+              className="flex items-center gap-1 rounded-lg border border-amber-300 px-2.5 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900"
+            >
+              <Copy size={12} /> {copied === "config" ? "Copied!" : "Copy"}
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

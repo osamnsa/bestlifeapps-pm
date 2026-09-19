@@ -207,6 +207,19 @@ export interface Session {
   expires_at: string;
 }
 
+export interface McpSettings {
+  id: string;
+  workspace: string;
+  is_enabled: boolean;
+  is_configured: boolean;
+  rotated_at: string | null;
+  updated_at: string;
+}
+
+export interface McpRotateResponse extends McpSettings {
+  secret: string;
+}
+
 export type IntegrationProvider = "imap" | "pop3" | "discord";
 export type IntegrationStatus = "connected" | "error" | "untested";
 
