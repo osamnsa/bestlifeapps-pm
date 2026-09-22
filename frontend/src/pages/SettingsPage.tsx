@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import {
   User as UserIcon, Lock, ShieldCheck, FolderPlus, Loader2, Check, Users, Copy, RotateCw, XCircle,
-  CheckCircle2, Trash2, X,
+  CheckCircle2, Trash2, X, UserPlus,
 } from "lucide-react";
 import {
   useMe, useUpdateProfile, useChangePassword, useSessions, useRevokeSession,
   useWorkspaces, useCreateProject, useCompleteProject, useReopenProject, useDeleteProject,
   useWorkspaceMembers, useInvites, useCreateInvite, useRevokeInvite, useResendInvite,
+  useCreateMember, useRemoveMember,
 } from "../api/resources";
 import type { MemberRole, Project } from "../types";
 import { format } from "date-fns";
@@ -450,6 +451,7 @@ function DeleteProjectModal({
 }
 
 function TeamTab() {
+  const { data: me } = useMe();
   const { data: workspaces } = useWorkspaces();
   const adminWorkspaces = workspaces?.filter((w) => w.my_role === "admin") ?? [];
   const [workspaceId, setWorkspaceId] = useState("");
@@ -463,10 +465,38 @@ function TeamTab() {
   const createInvite = useCreateInvite();
   const revokeInvite = useRevokeInvite();
   const resendInvite = useResendInvite();
+  const createMember = useCreateMember();
+  const removeMember = useRemoveMember();
 
   const [role, setRole] = useState<MemberRole>("member");
   const [email, setEmail] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState<MemberRole>("member");
+  const [createdAccount, setCreatedAccount] = useState<{ username: string; password: string } | null>(null);
+
+  function submitCreateMember() {
+    if (!workspaceId || !newUsername.trim() || !newPassword) return;
+    createMember.mutate(
+      { workspaceId, username: newUsername.trim(), password: newPassword, role: newRole },
+      {
+        onSuccess: () => {
+          setCreatedAccount({ username: newUsername.trim(), password: newPassword });
+          setNewUsername("");
+          setNewPassword("");
+          setNewRole("member");
+        },
+      }
+    );
+  }
+
+  function confirmRemoveMember(userId: string, username: string) {
+    if (!workspaceId) return;
+    if (!window.confirm(`Remove ${username} from this workspace? Their account keeps working in any other workspace they belong to.`)) return;
+    removeMember.mutate({ workspaceId, userId });
+  }
 
   if (adminWorkspaces.length === 0) {
     return (
@@ -503,6 +533,74 @@ function TeamTab() {
 
   return (
     <div className="space-y-5">
+      <Card>
+        <h2 className="mb-1 text-sm font-semibold text-slate-700 dark:text-slate-200">Create an account directly</h2>
+        <p className="mb-4 text-xs text-slate-400 dark:text-slate-500">
+          Set a username and temporary password on the spot -- no invite link or email needed. Share the password with them yourself and have them change it after they log in.
+        </p>
+        {adminWorkspaces.length > 1 && (
+          <div className="mb-3">
+            <Label>Workspace</Label>
+            <select
+              value={workspaceId}
+              onChange={(e) => setWorkspaceId(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+            >
+              {adminWorkspaces.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div className="mb-3 grid grid-cols-2 gap-3">
+          <div>
+            <Label>Username</Label>
+            <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder="jane.doe" />
+          </div>
+          <div>
+            <Label>Temporary password</Label>
+            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          </div>
+        </div>
+        <div className="mb-3">
+          <Label>Role</Label>
+          <select
+            value={newRole}
+            onChange={(e) => setNewRole(e.target.value as MemberRole)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+          >
+            <option value="admin">Admin</option>
+            <option value="member">Member</option>
+            <option value="viewer">Viewer</option>
+          </select>
+        </div>
+        <button
+          onClick={submitCreateMember}
+          disabled={createMember.isPending || !workspaceId || !newUsername.trim() || !newPassword}
+          className="flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+        >
+          <UserPlus size={14} /> Create account
+        </button>
+        {createMember.isError && (
+          <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+            {(createMember.error as any)?.response?.data?.username?.[0]
+              ?? (createMember.error as any)?.response?.data?.password?.[0]
+              ?? (createMember.error as any)?.response?.data?.detail
+              ?? "Could not create the account."}
+          </p>
+        )}
+        {createdAccount && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs dark:border-amber-900 dark:bg-amber-950">
+            <p className="mb-1 font-medium text-amber-800 dark:text-amber-300">
+              Account created -- share these credentials now, they will not be shown again here:
+            </p>
+            <p className="text-amber-900 dark:text-amber-200">
+              Username: <code className="font-semibold">{createdAccount.username}</code> / Password: <code className="font-semibold">{createdAccount.password}</code>
+            </p>
+          </div>
+        )}
+      </Card>
+
       <Card>
         <h2 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-200">Invite a teammate</h2>
         {adminWorkspaces.length > 1 && (
@@ -612,12 +710,29 @@ function TeamTab() {
           {members?.map((m) => (
             <div key={m.id} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700">
               <span className="text-slate-700 dark:text-slate-200">{m.user.username}</span>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                {m.role}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  {m.role}
+                </span>
+                {m.user.id !== me?.id && (
+                  <button
+                    onClick={() => confirmRemoveMember(m.user.id, m.user.username)}
+                    disabled={removeMember.isPending}
+                    title="Remove from this workspace"
+                    className="rounded-lg border border-red-200 p-1 text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
+        {removeMember.isError && (
+          <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+            {(removeMember.error as any)?.response?.data?.detail ?? "Could not remove that member."}
+          </p>
+        )}
       </Card>
     </div>
   );

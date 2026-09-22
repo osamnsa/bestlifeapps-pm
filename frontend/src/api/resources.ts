@@ -185,6 +185,31 @@ export function useWorkspaceMembers(workspaceId?: string) {
   });
 }
 
+export function useCreateMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      workspaceId, username, password, role, email, first_name, last_name,
+    }: {
+      workspaceId: string; username: string; password: string; role: MemberRole;
+      email?: string; first_name?: string; last_name?: string;
+    }) =>
+      (await api.post<WorkspaceMember>(`/workspaces/${workspaceId}/create-member/`, {
+        username, password, role, email, first_name, last_name,
+      })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace-members"] }),
+  });
+}
+
+export function useRemoveMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ workspaceId, userId }: { workspaceId: string; userId: string }) =>
+      api.delete(`/workspaces/${workspaceId}/members/${userId}/`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["workspace-members"] }),
+  });
+}
+
 // ---------- Invites ----------
 export function useInvites(workspaceId?: string) {
   return useQuery({
