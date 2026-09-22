@@ -4,21 +4,15 @@ Django settings for the Best Life Apps project management platform.
 import os
 from datetime import timedelta
 from pathlib import Path
-import dj_database_url
 from dotenv import load_dotenv
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-secret-key-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"
-ALLOWED_HOSTS = [h for h in os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",") if h]
-
-# Render sets this automatically on every service; trust it so the backend is
-# reachable at its onrender.com URL without hardcoding it in DJANGO_ALLOWED_HOSTS.
-RENDER_EXTERNAL_HOSTNAME = os.getenv("RENDER_EXTERNAL_HOSTNAME")
-if RENDER_EXTERNAL_HOSTNAME:
-    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -75,12 +69,18 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-# Render (and most other PaaS providers) inject a single DATABASE_URL for the
-# managed Postgres instance; docker-compose/local dev instead sets the
-# individual POSTGRES_* variables. Support both.
-DATABASE_URL = os.getenv("DATABASE_URL")
-if DATABASE_URL:
-    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)}
+# Render (and most managed-Postgres platforms) provide a single DATABASE_URL
+# connection string instead of separate host/user/password variables. Prefer
+# that when it's set; fall back to the individual POSTGRES_* vars used by the
+# local Docker Compose setup so nothing breaks for existing dev environments.
+if os.getenv("DATABASE_URL"):
+    DATABASES = {
+        "default": dj_database_url.parse(
+            os.environ["DATABASE_URL"],
+            conn_max_age=600,
+            ssl_require=os.getenv("DATABASE_SSL_REQUIRE", "true").lower() == "true",
+        )
+    }
 else:
     DATABASES = {
         "default": {
@@ -150,8 +150,6 @@ CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = os.getenv(
     "CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173"
 ).split(",")
-if RENDER_EXTERNAL_HOSTNAME:
-    CSRF_TRUSTED_ORIGINS.append(f"https://{RENDER_EXTERNAL_HOSTNAME}")
 
 # Symmetric key used to encrypt integration credentials (e.g. IMAP/POP3 passwords)
 # at rest. MUST be overridden in production via the FIELD_ENCRYPTION_KEY env var —

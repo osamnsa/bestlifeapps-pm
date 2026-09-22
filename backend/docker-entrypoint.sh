@@ -1,11 +1,22 @@
 #!/bin/sh
 set -e
 
-echo "Waiting for database at ${POSTGRES_HOST:-db}:${POSTGRES_PORT:-5432}..."
 python - <<'PYEOF'
 import os, socket, time
-host = os.getenv("POSTGRES_HOST", "db")
-port = int(os.getenv("POSTGRES_PORT", "5432"))
+from urllib.parse import urlparse
+
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    # Render (and most managed-Postgres platforms) provide one connection
+    # string. Their databases are typically already reachable by the time the
+    # web service boots, so we still probe briefly but don't require it.
+    parsed = urlparse(database_url)
+    host, port = parsed.hostname, parsed.port or 5432
+else:
+    host = os.getenv("POSTGRES_HOST", "db")
+    port = int(os.getenv("POSTGRES_PORT", "5432"))
+
+print(f"Waiting for database at {host}:{port}...")
 for _ in range(60):
     try:
         socket.create_connection((host, port), timeout=2).close()

@@ -21,5 +21,10 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8000
 
+# Local Docker Compose doesn't set PORT, so default to 8000 there. Render (and
+# most PaaS platforms) inject their own PORT value and require the process to
+# bind to it, hence the shell-form CMD below so $PORT gets expanded at
+# container start rather than baked in at build time.
+ENV PORT=8000
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3"]
+CMD gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 3

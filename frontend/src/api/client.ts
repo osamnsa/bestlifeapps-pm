@@ -1,7 +1,13 @@
 import axios from "axios";
 
+// Defaults to "/api" for local dev (proxied by Vite) and for any deployment
+// where the frontend and backend share one origin. Set VITE_API_BASE_URL at
+// build time when they're on separate origins/services (e.g. Render, where
+// the frontend is a Static Site and the backend is its own Web Service).
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+
 export const api = axios.create({
-  baseURL: "/api",
+  baseURL: API_BASE_URL,
 });
 
 api.interceptors.request.use((config) => {
@@ -33,7 +39,7 @@ api.interceptors.response.use(
       }
       isRefreshing = true;
       try {
-        const { data } = await axios.post("/api/auth/token/refresh/", { refresh });
+        const { data } = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, { refresh });
         localStorage.setItem("access_token", data.access);
         queue.forEach((cb) => cb());
         queue = [];
