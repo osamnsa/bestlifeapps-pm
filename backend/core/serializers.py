@@ -89,6 +89,39 @@ class WorkspaceMembershipSerializer(serializers.ModelSerializer):
         fields = ["id", "workspace", "user", "role"]
 
 
+class CreateMemberSerializer(serializers.Serializer):
+    """Admin-only: creates a brand new login directly (username + temporary
+    password chosen on the spot) and adds it to the workspace immediately —
+    no invite link or email required. Useful for self-hosted setups where
+    email delivery isn't configured."""
+
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(required=False, allow_blank=True, default="")
+    first_name = serializers.CharField(required=False, allow_blank=True, default="")
+    last_name = serializers.CharField(required=False, allow_blank=True, default="")
+    role = serializers.ChoiceField(choices=WorkspaceMembership.ROLE_CHOICES, default="member")
+
+    def validate_username(self, value):
+        if User.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError("That username is already taken.")
+        return value
+
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
+    def create(self, validated_data):
+        User.objects.create_user(
+            username=validated_data["username"],
+            password=validated_data["password"],
+            email=validated_data.get("email", ""),
+            first_name=validated_data.get("first_name", ""),
+            last_name=validated_data.get("last_name", ""),
+        )
+        return User.objects.get(username__iexact=validated_data["username"])
+
+
 class InviteSerializer(serializers.ModelSerializer):
     invited_by = UserSerializer(read_only=True)
     workspace_name = serializers.CharField(source="workspace.name", read_only=True)

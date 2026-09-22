@@ -11,7 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import Workspace, WorkspaceMembership, Project, Label, Invite
 from .serializers import (
     WorkspaceSerializer, ProjectSerializer, LabelSerializer, UserSerializer,
-    ProfileUpdateSerializer, ChangePasswordSerializer,
+    ProfileUpdateSerializer, ChangePasswordSerializer, CreateMemberSerializer,
     InviteSerializer, InvitePreviewSerializer, AcceptInviteSerializer,
 )
 
@@ -102,6 +102,57 @@ class WorkspaceViewSet(viewsets.ModelViewSet):
             for m in memberships
         ]
         return Response(data)
+
+    @action(detail=True, methods=["post"], url_path="create-member")
+    def create_member(self, request, pk=None):
+        """Admin-only: create a brand new login directly and add it to this
+        workspace immediately — no invite link or email required."""
+        workspace = self.get_object()
+        _require_admin(request.user, workspace)
+        serializer = CreateMemberSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        role = serializer.validated_data["role"]
+        user = serializer.save()
+        membership = WorkspaceMembership.objects.create(workspace=workspace, user=user, role=role)
+        return Response(
+            {"id": str(membership.id), "user": UserSerializer(user).data, "role": membership.role},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=["delete"], url_path=r"members/(?P<user_id>[^/.]+)")
+    def remove_member(self, request, pk=None, user_id=None):
+        """Admin-only: removes a user's access to this workspace only — their
+        account keeps working in any other workspace they belong to. They are
+        also unassigned from this workspace's projects and work items. Blocked
+        if they're the workspace's last remaining admin."""
+        workspace = self.get_object()
+        _require_admin(request.user, workspace)
+        membership = WorkspaceMembership.objects.filter(workspace=workspace, user_id=user_id).first()
+        if not membership:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if membership.role == "admin":
+            other_admins_exist = (
+                WorkspaceMembership.objects.filter(workspace=workspace, role="admin")
+                .exclude(id=membership.id)
+                .exists()
+            )
+            if not other_admins_exist:
+                return Response(
+                    {"detail": "You can't remove the last admin of a workspace."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        user = membership.user
+        for project in Project.objects.filter(workspace=workspace, members=user):
+            project.members.remove(user)
+
+        from workitems.models import WorkItem  # local import avoids a circular import with core
+        for work_item in WorkItem.objects.filter(project__workspace=workspace, assignees=user):
+            work_item.assignees.remove(user)
+
+        membership.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
