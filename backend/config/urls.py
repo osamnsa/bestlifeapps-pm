@@ -50,5 +50,6 @@ urlpatterns = [
     path("api/", include(router.urls)),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Served by Django itself (not just in DEBUG) since this is a small,
+# self-hosted deployment without a separate media server/CDN in front.
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

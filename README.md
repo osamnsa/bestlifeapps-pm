@@ -119,6 +119,33 @@ across current and future features. See
 [`integrations/sarah-mcp/README.md`](./integrations/sarah-mcp/README.md) for
 setup and connection details.
 
+## Deploying to Render
+
+This repo includes a [`render.yaml`](./render.yaml) Blueprint that provisions everything in one go:
+
+- **`bestlifeapps-pm-backend`** — Django API (Python native runtime), build command runs
+  `pip install` + `collectstatic`, start command runs migrations then `gunicorn`.
+- **`bestlifeapps-pm-frontend`** — the Vite app built as a static site. Publish directory is
+  `dist` (with `rootDir: frontend`, so it's `frontend/dist` from the repo root — this is the
+  value to use for **Publish Directory** if you set the service up by hand instead of via the
+  Blueprint). Build command is `npm install && npm run build`. It also carries rewrite rules that
+  proxy `/api/*` and `/media/*` to the backend and fall back `/*` to `/index.html` for
+  client-side routing.
+- **`bestlifeapps-pm-db`** — a managed Postgres instance, wired to the backend via `DATABASE_URL`.
+
+To deploy: push this repo to GitHub, then in the Render dashboard choose **New > Blueprint** and
+point it at the repo — Render reads `render.yaml` and creates all three resources. After the
+first deploy:
+
+- Set `FIELD_ENCRYPTION_KEY` on the backend service (it's left blank on purpose). Generate one
+  with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`.
+- If Render appended a random suffix to either service name (because the plain name was taken),
+  update `CORS_ALLOWED_ORIGINS`/`CSRF_TRUSTED_ORIGINS` on the backend and the two rewrite
+  `destination` URLs in `render.yaml` (frontend service) to match the real hostnames, then
+  redeploy.
+- The free plan's disk is ephemeral, so uploaded file attachments won't survive a redeploy —
+  swap in S3-compatible storage (see below) before relying on attachments in production.
+
 ## Production notes
 
 - The frontend `Dockerfile` includes a `production` stage that builds static assets and serves
